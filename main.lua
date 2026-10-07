@@ -1,12 +1,28 @@
 --[[
     NAN UI v1.0
-    updated
+    Updated Main Library
+
+    Features:
+    - Ocean / Dark themes
+    - Draggable window
+    - Tabs / Sections
+    - Buttons
+    - Toggles
+    - Sliders
+    - Notifications
+    - Automatic User tab
+    - Username / Display Name
+    - Ping
+    - FPS
+    - Current Game
 ]]
 
 local NAN = {}
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local MarketplaceService = game:GetService("MarketplaceService")
 
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
@@ -17,7 +33,10 @@ local Themes = {
         Secondary = Color3.fromRGB(24, 30, 40),
         Accent = Color3.fromRGB(0, 170, 255),
         Text = Color3.fromRGB(240, 240, 240),
-        Muted = Color3.fromRGB(150, 155, 165)
+        Muted = Color3.fromRGB(150, 155, 165),
+
+        On = Color3.fromRGB(70, 220, 100),
+        Off = Color3.fromRGB(255, 75, 75)
     },
 
     Dark = {
@@ -25,7 +44,10 @@ local Themes = {
         Secondary = Color3.fromRGB(25, 25, 25),
         Accent = Color3.fromRGB(120, 120, 255),
         Text = Color3.fromRGB(245, 245, 245),
-        Muted = Color3.fromRGB(150, 150, 150)
+        Muted = Color3.fromRGB(150, 150, 150),
+
+        On = Color3.fromRGB(70, 220, 100),
+        Off = Color3.fromRGB(255, 75, 75)
     }
 }
 
@@ -92,6 +114,7 @@ local function MakeDraggable(frame, handle)
 
         if input.UserInputType == Enum.UserInputType.MouseButton1
             or input.UserInputType == Enum.UserInputType.Touch then
+
             dragging = false
         end
     end)
@@ -110,7 +133,6 @@ function NAN:CreateWindow(config)
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     }, PlayerGui)
 
-    -- Fixed centering
     local Main = Create("Frame", {
         Name = "Main",
         Size = UDim2.new(0, 420, 0, 320),
@@ -163,7 +185,8 @@ function NAN:CreateWindow(config)
     Create("UIPadding", {
         PaddingTop = UDim.new(0, 10),
         PaddingLeft = UDim.new(0, 8),
-        PaddingRight = UDim.new(0, 8)
+        PaddingRight = UDim.new(0, 8),
+        PaddingBottom = UDim.new(0, 10)
     }, Sidebar)
 
     Create("UIListLayout", {
@@ -290,7 +313,7 @@ function NAN:CreateWindow(config)
                     Size = UDim2.new(1, 0, 0, 25),
                     BackgroundTransparency = 1,
                     Font = Enum.Font.Gotham,
-                    Text = text,
+                    Text = tostring(text),
                     TextColor3 = Theme.Muted,
                     TextSize = 13,
                     TextXAlignment = Enum.TextXAlignment.Left
@@ -304,7 +327,7 @@ function NAN:CreateWindow(config)
                     BackgroundColor3 = Theme.Background,
                     BorderSizePixel = 0,
                     Font = Enum.Font.Gotham,
-                    Text = text,
+                    Text = tostring(text),
                     TextColor3 = Theme.Text,
                     TextSize = 13
                 }, Container)
@@ -331,20 +354,30 @@ function NAN:CreateWindow(config)
                     BackgroundColor3 = Theme.Background,
                     BorderSizePixel = 0,
                     Font = Enum.Font.Gotham,
-                    Text = text .. "  [" ..
+                    Text = tostring(text) .. "  [" ..
                         (enabled and "ON" or "OFF") .. "]",
-                    TextColor3 = Theme.Text,
+                    TextColor3 = enabled and Theme.On or Theme.Off,
                     TextSize = 13
                 }, Container)
 
                 Corner(Toggle, 6)
 
+                local function UpdateToggle()
+
+                    Toggle.Text = tostring(text) .. "  [" ..
+                        (enabled and "ON" or "OFF") .. "]"
+
+                    Toggle.TextColor3 =
+                        enabled and Theme.On or Theme.Off
+                end
+
+                UpdateToggle()
+
                 Toggle.MouseButton1Click:Connect(function()
 
                     enabled = not enabled
 
-                    Toggle.Text = text .. "  [" ..
-                        (enabled and "ON" or "OFF") .. "]"
+                    UpdateToggle()
 
                     if options.Callback then
                         options.Callback(enabled)
@@ -380,7 +413,7 @@ function NAN:CreateWindow(config)
                     Size = UDim2.new(1, 0, 0, 22),
                     BackgroundTransparency = 1,
                     Font = Enum.Font.Gotham,
-                    Text = text .. ": " .. tostring(Value),
+                    Text = tostring(text) .. ": " .. tostring(Value),
                     TextColor3 = Theme.Text,
                     TextSize = 13,
                     TextXAlignment = Enum.TextXAlignment.Left
@@ -434,7 +467,8 @@ function NAN:CreateWindow(config)
                         0
                     )
 
-                    Label.Text = text .. ": " .. tostring(Value)
+                    Label.Text =
+                        tostring(text) .. ": " .. tostring(Value)
 
                     if options.Callback then
                         options.Callback(Value)
@@ -501,11 +535,81 @@ function NAN:CreateWindow(config)
         Corner(Notification, 8)
 
         task.delay(duration, function()
+
             if Notification and Notification.Parent then
                 Notification:Destroy()
             end
         end)
     end
+
+    ----------------------------------------------------------------
+    -- AUTOMATIC USER TAB
+    ----------------------------------------------------------------
+
+    local UserTab = Window:CreateTab("User")
+    local UserSection = UserTab:CreateSection("Profile")
+
+    UserSection:CreateLabel(
+        "Username: @" .. Player.Name
+    )
+
+    UserSection:CreateLabel(
+        "Display Name: " .. Player.DisplayName
+    )
+
+    local PingLabel = UserSection:CreateLabel("Ping: ...")
+    local FPSLabel = UserSection:CreateLabel("FPS: ...")
+    local GameLabel = UserSection:CreateLabel("Game: Loading...")
+
+    -- Get current game name
+    task.spawn(function()
+
+        local success, info = pcall(function()
+            return MarketplaceService:GetProductInfo(game.PlaceId)
+        end)
+
+        if success and info then
+            GameLabel.Text = "Game: " .. tostring(info.Name)
+        else
+            GameLabel.Text = "Game: Unknown"
+        end
+    end)
+
+    -- Live FPS counter
+    local Frames = 0
+    local LastFPSUpdate = os.clock()
+
+    RunService.RenderStepped:Connect(function()
+
+        Frames += 1
+
+        local now = os.clock()
+
+        if now - LastFPSUpdate >= 1 then
+
+            FPSLabel.Text = "FPS: " .. tostring(Frames)
+
+            Frames = 0
+            LastFPSUpdate = now
+        end
+    end)
+
+    -- Live ping updater
+    task.spawn(function()
+
+        while GUI.Parent do
+
+            local ping = 0
+
+            pcall(function()
+                ping = math.floor(Player:GetNetworkPing() * 1000 + 0.5)
+            end)
+
+            PingLabel.Text = "Ping: " .. tostring(ping) .. " ms"
+
+            task.wait(1)
+        end
+    end)
 
     return Window
 end
