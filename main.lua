@@ -106,7 +106,7 @@ function NAN:CreateWindow(config)
 
     local Main = Create("Frame", {
         Name = "Main",
-        Size = UDim2.new(0, 420, 0, 320),
+        Size = UDim2.new(0, 360, 0, 240),
         Position = UDim2.new(0.5, -310, 0.5, -160),
         BackgroundColor3 = Theme.Background,
         BorderSizePixel = 0
