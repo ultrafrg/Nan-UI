@@ -1,12 +1,11 @@
 --[[
     NAN UI v1.0
-    Main Library
+    updated
 ]]
 
 local NAN = {}
 
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Player = Players.LocalPlayer
@@ -45,48 +44,55 @@ local function Create(class, properties, parent)
 end
 
 local function Corner(parent, radius)
-    return Create("UICorner", {
+    Create("UICorner", {
         CornerRadius = UDim.new(0, radius or 6)
     }, parent)
 end
 
 local function MakeDraggable(frame, handle)
+
     local dragging = false
     local dragStart
     local startPosition
 
     handle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
 
-            dragging = true
-            dragStart = input.Position
-            startPosition = frame.Position
-
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+            and input.UserInputType ~= Enum.UserInputType.Touch then
+            return
         end
+
+        dragging = true
+        dragStart = input.Position
+        startPosition = frame.Position
     end)
 
     UserInputService.InputChanged:Connect(function(input)
+
         if not dragging then
             return
         end
 
-        if input.UserInputType == Enum.UserInputType.MouseMovement
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement
+            and input.UserInputType ~= Enum.UserInputType.Touch then
+            return
+        end
+
+        local delta = input.Position - dragStart
+
+        frame.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+
+        if input.UserInputType == Enum.UserInputType.MouseButton1
             or input.UserInputType == Enum.UserInputType.Touch then
-
-            local delta = input.Position - dragStart
-
-            frame.Position = UDim2.new(
-                startPosition.X.Scale,
-                startPosition.X.Offset + delta.X,
-                startPosition.Y.Scale,
-                startPosition.Y.Offset + delta.Y
-            )
+            dragging = false
         end
     end)
 end
@@ -104,10 +110,11 @@ function NAN:CreateWindow(config)
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     }, PlayerGui)
 
+    -- Fixed centering
     local Main = Create("Frame", {
         Name = "Main",
-        Size = UDim2.new(0, 360, 0, 240),
-        Position = UDim2.new(0.5, -310, 0.5, -160),
+        Size = UDim2.new(0, 420, 0, 320),
+        Position = UDim2.new(0.5, -210, 0.5, -160),
         BackgroundColor3 = Theme.Background,
         BorderSizePixel = 0
     }, GUI)
@@ -122,7 +129,7 @@ function NAN:CreateWindow(config)
 
     Corner(TopBar, 10)
 
-    local TitleLabel = Create("TextLabel", {
+    Create("TextLabel", {
         BackgroundTransparency = 1,
         Position = UDim2.new(0, 15, 0, 0),
         Size = UDim2.new(1, -60, 1, 0),
@@ -149,12 +156,9 @@ function NAN:CreateWindow(config)
         BackgroundColor3 = Theme.Secondary,
         BorderSizePixel = 0,
         ScrollBarThickness = 3,
-        CanvasSize = UDim2.new()
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y
     }, Main)
-
-    local TabLayout = Create("UIListLayout", {
-        Padding = UDim.new(0, 5)
-    }, Sidebar)
 
     Create("UIPadding", {
         PaddingTop = UDim.new(0, 10),
@@ -162,16 +166,20 @@ function NAN:CreateWindow(config)
         PaddingRight = UDim.new(0, 8)
     }, Sidebar)
 
-    local Content = Create("ScrollingFrame", {
+    Create("UIListLayout", {
+        Padding = UDim.new(0, 5),
+        SortOrder = Enum.SortOrder.LayoutOrder
+    }, Sidebar)
+
+    local Content = Create("Frame", {
         Position = UDim2.new(0, 150, 0, 45),
         Size = UDim2.new(1, -150, 1, -45),
         BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ScrollBarThickness = 4,
-        CanvasSize = UDim2.new()
+        BorderSizePixel = 0
     }, Main)
 
     local Window = {}
+    local FirstTab = true
 
     MakeDraggable(Main, TopBar)
 
@@ -198,24 +206,21 @@ function NAN:CreateWindow(config)
             Position = UDim2.new(0, 10, 0, 10),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            Visible = false,
+            Visible = FirstTab,
             ScrollBarThickness = 4,
-            CanvasSize = UDim2.new()
+            CanvasSize = UDim2.new(0, 0, 0, 0),
+            AutomaticCanvasSize = Enum.AutomaticSize.Y
         }, Content)
 
-        local Layout = Create("UIListLayout", {
+        Create("UIListLayout", {
             Padding = UDim.new(0, 8),
             SortOrder = Enum.SortOrder.LayoutOrder
         }, Page)
 
-        Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            Page.CanvasSize = UDim2.new(
-                0,
-                0,
-                0,
-                Layout.AbsoluteContentSize.Y + 15
-            )
-        end)
+        if FirstTab then
+            TabButton.TextColor3 = Theme.Accent
+            FirstTab = false
+        end
 
         local Tab = {}
 
@@ -227,21 +232,20 @@ function NAN:CreateWindow(config)
                 end
             end
 
-            Page.Visible = true
-
             for _, child in ipairs(Sidebar:GetChildren()) do
                 if child:IsA("TextButton") then
                     child.TextColor3 = Theme.Muted
                 end
             end
 
+            Page.Visible = true
             TabButton.TextColor3 = Theme.Accent
         end)
 
         function Tab:CreateSection(name)
 
             local SectionFrame = Create("Frame", {
-                Size = UDim2.new(1, -5, 0, 40),
+                Size = UDim2.new(1, -5, 0, 0),
                 BackgroundColor3 = Theme.Secondary,
                 BorderSizePixel = 0,
                 AutomaticSize = Enum.AutomaticSize.Y
@@ -256,7 +260,7 @@ function NAN:CreateWindow(config)
                 PaddingRight = UDim.new(0, 10)
             }, SectionFrame)
 
-            local SectionTitle = Create("TextLabel", {
+            Create("TextLabel", {
                 Size = UDim2.new(1, 0, 0, 25),
                 BackgroundTransparency = 1,
                 Font = Enum.Font.GothamBold,
@@ -273,13 +277,15 @@ function NAN:CreateWindow(config)
                 AutomaticSize = Enum.AutomaticSize.Y
             }, SectionFrame)
 
-            local Layout = Create("UIListLayout", {
-                Padding = UDim.new(0, 6)
+            Create("UIListLayout", {
+                Padding = UDim.new(0, 6),
+                SortOrder = Enum.SortOrder.LayoutOrder
             }, Container)
 
             local Section = {}
 
             function Section:CreateLabel(text)
+
                 return Create("TextLabel", {
                     Size = UDim2.new(1, 0, 0, 25),
                     BackgroundTransparency = 1,
@@ -318,14 +324,15 @@ function NAN:CreateWindow(config)
 
                 options = options or {}
 
-                local enabled = options.Default or false
+                local enabled = options.Default == true
 
                 local Toggle = Create("TextButton", {
                     Size = UDim2.new(1, 0, 0, 35),
                     BackgroundColor3 = Theme.Background,
                     BorderSizePixel = 0,
                     Font = Enum.Font.Gotham,
-                    Text = text .. "  [" .. (enabled and "ON" or "OFF") .. "]",
+                    Text = text .. "  [" ..
+                        (enabled and "ON" or "OFF") .. "]",
                     TextColor3 = Theme.Text,
                     TextSize = 13
                 }, Container)
@@ -351,9 +358,18 @@ function NAN:CreateWindow(config)
 
                 options = options or {}
 
-                local Min = options.Min or 0
-                local Max = options.Max or 100
-                local Value = options.Default or Min
+                local Min = tonumber(options.Min) or 0
+                local Max = tonumber(options.Max) or 100
+
+                if Max <= Min then
+                    Max = Min + 1
+                end
+
+                local Value = math.clamp(
+                    tonumber(options.Default) or Min,
+                    Min,
+                    Max
+                )
 
                 local Holder = Create("Frame", {
                     Size = UDim2.new(1, 0, 0, 55),
@@ -370,18 +386,19 @@ function NAN:CreateWindow(config)
                     TextXAlignment = Enum.TextXAlignment.Left
                 }, Holder)
 
-                local Bar = Create("Frame", {
+                local Bar = Create("TextButton", {
                     Position = UDim2.new(0, 0, 0, 30),
                     Size = UDim2.new(1, 0, 0, 8),
                     BackgroundColor3 = Theme.Background,
-                    BorderSizePixel = 0
+                    BorderSizePixel = 0,
+                    Text = ""
                 }, Holder)
 
                 Corner(Bar, 4)
 
                 local Fill = Create("Frame", {
                     Size = UDim2.new(
-                        math.clamp((Value - Min) / (Max - Min), 0, 1),
+                        (Value - Min) / (Max - Min),
                         0,
                         1,
                         0
@@ -392,28 +409,39 @@ function NAN:CreateWindow(config)
 
                 Corner(Fill, 4)
 
-                local dragging = false
+                local function SetValue(x)
 
-                local function SetValue(inputX)
+                    local width = Bar.AbsoluteSize.X
+
+                    if width <= 0 then
+                        return
+                    end
 
                     local percent = math.clamp(
-                        (inputX - Bar.AbsolutePosition.X)
-                            / Bar.AbsoluteSize.X,
+                        (x - Bar.AbsolutePosition.X) / width,
                         0,
                         1
                     )
 
                     Value = math.floor(
-                        Min + ((Max - Min) * percent)
+                        Min + ((Max - Min) * percent) + 0.5
                     )
 
-                    Fill.Size = UDim2.new(percent, 0, 1, 0)
+                    Fill.Size = UDim2.new(
+                        percent,
+                        0,
+                        1,
+                        0
+                    )
+
                     Label.Text = text .. ": " .. tostring(Value)
 
                     if options.Callback then
                         options.Callback(Value)
                     end
                 end
+
+                local dragging = false
 
                 Bar.InputBegan:Connect(function(input)
 
@@ -431,6 +459,7 @@ function NAN:CreateWindow(config)
                         input.UserInputType == Enum.UserInputType.MouseMovement
                         or input.UserInputType == Enum.UserInputType.Touch
                     ) then
+
                         SetValue(input.Position.X)
                     end
                 end)
@@ -439,6 +468,7 @@ function NAN:CreateWindow(config)
 
                     if input.UserInputType == Enum.UserInputType.MouseButton1
                         or input.UserInputType == Enum.UserInputType.Touch then
+
                         dragging = false
                     end
                 end)
@@ -454,15 +484,15 @@ function NAN:CreateWindow(config)
 
     function Window:Notify(message, duration)
 
-        duration = duration or 3
+        duration = tonumber(duration) or 3
 
         local Notification = Create("TextLabel", {
-            Size = UDim2.new(0, 280, 0, 45),
-            Position = UDim2.new(1, -300, 1, -65),
+            Size = UDim2.new(0, 260, 0, 45),
+            Position = UDim2.new(1, -275, 1, -60),
             BackgroundColor3 = Theme.Secondary,
             BorderSizePixel = 0,
             Font = Enum.Font.Gotham,
-            Text = message,
+            Text = tostring(message),
             TextColor3 = Theme.Text,
             TextSize = 13,
             TextWrapped = true
@@ -471,7 +501,7 @@ function NAN:CreateWindow(config)
         Corner(Notification, 8)
 
         task.delay(duration, function()
-            if Notification then
+            if Notification and Notification.Parent then
                 Notification:Destroy()
             end
         end)
